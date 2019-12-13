@@ -1,8 +1,18 @@
 const express = require('express')
+const xss = require('xss')
 const BookmarksService = require('./bookmarks-service')
 
 const BookmarksRouter = express.Router()
 const jsonParser = express.json()
+
+const serializeBookmark = bookmark => ({
+    id: bookmark.id,
+    title: bookmark.title,
+    url: bookmark.url,
+    description: bookmark.description,
+    rating: bookmark.rating
+});
+
 
 BookmarksRouter
   .route('/')
