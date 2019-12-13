@@ -1,6 +1,6 @@
 INSERT INTO bookmarks
-  (title, url, description, rating)
+  (title, url, rating, description)
 VALUES
-  ('abs', 'http://abs.com', 'strong', 5),
-  ('bears', 'http://bears.com', 'strong', 5)
+  ('abs', 'http://abs.com', 5, 'strong'),
+  ('bears', 'http://bears.com', 5, 'strong')
     
