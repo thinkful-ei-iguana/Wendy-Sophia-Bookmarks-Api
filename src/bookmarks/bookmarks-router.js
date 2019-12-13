@@ -26,19 +26,27 @@ BookmarksRouter
   })
   .post(jsonParser, (req, res, next) => {
     const { title, url, description, rating } = req.body;
-    const newBookmark = { title, content, style };
+    const newBookmark = { title, url, description, rating };
 
     if(!title) {
         return res.status(400).json({
-            error: {message: `Missing 'title' in request body`}
+            error: {message: "Missing 'title' in request body"}
         });
     }
 
     if(!url){
         return res.status(400).json({
-            error: {message: `Missing 'url' in request body`}
+            error: {message: "Missing 'url' in request body"}
         });
     }
+
+    if(!rating){
+        return res.status(400).json({
+            error: {message: "Missing 'rating' in request body"}
+        });
+    }
+
+
 
     BookmarksService.insertBookmark(
       req.app.get('db'),
@@ -47,7 +55,7 @@ BookmarksRouter
       .then(bookmark => {
         res
           .status(201)
-          .location(`/articles/${bookmark.id}`)
+          .location(`/bookmarks/${bookmark.id}`)
           .json(bookmark);
       })
       .catch(next);
