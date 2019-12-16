@@ -1,7 +1,8 @@
 const { expect } = require("chai");
 const knex = require("knex");
 const app = require("../src/app");
-const { makeBookmarksArray } = require("./bookmarks-fixtures");
+const fixtures = require("./bookmarks-fixtures");
+
 
 describe("Bookmarks endpoints", function () {
   let db;
@@ -33,7 +34,7 @@ describe("Bookmarks endpoints", function () {
     });
 
     context("Given there are bookmarks in the database", () => {
-      const testBookmarks = makeBookmarksArray();
+      const testBookmarks = fixtures.makeBookmarksArray();
 
       beforeEach("insert bookmarks", () => {
         return db.into("bookmarks").insert(testBookmarks);
@@ -45,7 +46,28 @@ describe("Bookmarks endpoints", function () {
           .expect(200, testBookmarks);
       });
     });
-  });
+
+    context("Given an XSS attack bookmark", () => {
+      const { maliciousBookmark, expectedBookmark } = fixtures.makeMaliciousBookmark()
+
+      beforeEach("insert malicious bookmark", () => {
+        return db
+          .into("bookmarks")
+          .insert([maliciousBookmark]);
+      })
+
+      it("removes XSS attack content", () => {
+        return supertest(app)
+          .get("/bookmarks")
+          .expect(200)
+          .expect(res => {
+            expect(res.body[0].title).to.eql(expectedBookmark.title)
+            expect(res.body[0].description).to.eql(expectedBookmark.description)
+          })
+      })
+    })
+  })
+
 
   describe("GET /bookmarks/:bookmark_id", () => {
     context("Given no bookmarks", () => {
@@ -58,7 +80,7 @@ describe("Bookmarks endpoints", function () {
     });
 
     context("Given there are bookmarks in the database", () => {
-      const testBookmarks = makeBookmarksArray();
+      const testBookmarks = fixtures.makeBookmarksArray();
 
       beforeEach("insert bookmarks", () => {
         return db.into("bookmarks").insert(testBookmarks);
@@ -73,16 +95,65 @@ describe("Bookmarks endpoints", function () {
       });
     });
 
-    context("Given an XSS attack article", () => {
-      const maliciousBookmark = {
-        id: 911,
-        title: "baby"
-      };
+    context("Given an XSS attack bookmark", () => {
+      const { maliciousBookmark, expectedBookmark } = fixtures.makeMaliciousBookmark()
+
+      beforeEach("insert malicious bookmark", () => {
+        return db
+          .into("bookmarks")
+          .insert([maliciousBookmark])
+      })
+
+      it("removes XSS attack content", () => {
+        return supertest(app)
+          .get(`/bookmarks/${maliciousBookmark.id}`)
+          .expect(200)
+          .expect(res => {
+            expect(res.body.title).to.eql(expectedBookmark.title)
+            expect(res.body.description).to.eql(expectedBookmark.description)
+          })
+
+      });
     });
   });
 
+  describe("DELETE /bookmarks/:id", () => {
+    context("Given no bookmarks", () => {
+      it("responds 404 when bookmark doesn't exist", () => {
+        return supertest(app)
+          .delete("/bookmarks/123")
+          .expect(404, {
+            error: { message: "Bookmark Not Found" }
+          })
+      })
+    })
+
+    context("Given there are bookmarks in the database", () => {
+      const testBookmarks = fixtures.makeBookmarksArray()
+
+      beforeEach("insert bookmarks", () => {
+        return db
+          .into("bookmarks")
+          .insert(testBookmarks)
+      })
+
+      it("removes the bookmark by ID from the store", () => {
+        const idToRemove = 2;
+        const expectedBookmarks = testBookmarks.filter(bm => bm.id !== idToRemove)
+        return supertest(app)
+          .delete(`/bookmarks/${idToRemove}`)
+          .expect(204)
+          .then(() =>
+            supertest(app)
+              .get("/bookmarks")
+              .expect(expectedBookmarks)
+          )
+      })
+    })
+  })
+
   describe("POST /bookmarks", () => {
-    it("creates an article, responding with 201 and the new article", () => {
+    it("creates an bookmark, responding with 201 and the new bookmark", () => {
       this.retries(3);
       const newBookmark = {
         title: "Test new bookmark",
@@ -135,7 +206,7 @@ describe("Bookmarks endpoints", function () {
         });
     });
 
-    it("respomds with 400 and an error message when the 'rating' is missing ", () => {
+    it("responds with 400 and an error message when the 'rating' is missing ", () => {
       return supertest(app)
         .post("/bookmarks")
         .send({
@@ -144,9 +215,9 @@ describe("Bookmarks endpoints", function () {
           description: "test new bookmark"
         })
         .expect(400, {
-          error: { message: "Missing 'rating' in request body" }
+          error: { message: "'rating' must be a number between 0 and 5" }
         });
     });
   });
-});
 
+});
