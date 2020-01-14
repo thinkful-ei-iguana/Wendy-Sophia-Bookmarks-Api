@@ -1,6 +1,6 @@
-const express = require('express')
-const xss = require('xss')
-const BookmarksService = require('./bookmarks-service')
+const express = require("express")
+const xss = require("xss")
+const BookmarksService = require("./bookmarks-service")
 
 const BookmarksRouter = express.Router()
 const jsonParser = express.json()
@@ -16,15 +16,15 @@ const serializeBookmark = bookmark => ({
 
 
 BookmarksRouter // on the API
-  .route('/')
+  .route("/")
   .get((req, res, next) => {
-    const knexInstance = req.app.get('db') // API is signing into your database. State of being logged in
+    const knexInstance = req.app.get("db"); // API is signing into your database. State of being logged in
     BookmarksService.getAllBookmarks(knexInstance)
       .then(bookmarks => {
-        const bookmark = bookmarks.map(bookmark => {
+        const cleanBookmarks = bookmarks.map(bookmark => {
           return serializeBookmark(bookmark);
         });
-        res.json(bookmark); //array of JSON objects
+        res.json(cleanBookmarks); //array of JSON objects
       })
       .catch(next);
   })
@@ -48,12 +48,12 @@ BookmarksRouter // on the API
 
     if (!Number.isInteger(ratingNum) || ratingNum < 0 || ratingNum > 5) {
       return res.status(400).send({
-        error: { message: `'rating' must be a number between 0 and 5` }
+        error: { message: "'rating' must be a number between 0 and 5" }
       });
     }
 
     BookmarksService.insertBookmark(
-      req.app.get('db'),
+      req.app.get("db"),
       newBookmark
     )
       .then(bookmark => {
@@ -66,14 +66,14 @@ BookmarksRouter // on the API
   })
 
 BookmarksRouter
-  .route('/:bookmark_id')
+  .route("/:bookmark_id")
   .get((req, res, next) => {
-    const knexInstance = req.app.get('db')
+    const knexInstance = req.app.get("db")
     BookmarksService.getById(knexInstance, req.params.bookmark_id)//bookmark id
       .then(bookmark => {
         if (!bookmark) {
           return res.status(404).json({
-            error: { message: `Bookmark doesn't exist` }
+            error: { message: "Bookmark doesn't exist" }
           });
         }
         res.json(serializeBookmark(bookmark));
@@ -83,19 +83,42 @@ BookmarksRouter
   .delete((req, res, next) => {
     const { bookmark_id } = req.params;
     BookmarksService.deleteBookmark(
-      req.app.get('db'),
+      req.app.get("db"),
       bookmark_id
     )
       .then(numRowsAffected => {
-        if(numRowsAffected > 0){
+        if (numRowsAffected > 0) {
           return res.status(204).end();
         }
         else {
           return res.status(404).json({
-            error: {"message": "Bookmark Not Found"}
+            error: { "message": "Bookmark Not Found" }
           });
         }
-        
+
+      })
+      .catch(next);
+  })
+  .patch(jsonParser, (req, res, next) => {
+    const { title, url, description, rating } = req.body;
+    const bookmarkToUpdate = { title, url, description, rating };
+
+    const numberOfValues = Object.values(bookmarkToUpdate).filter(Boolean).length;
+    if (numberOfValues === 0) {
+      return res.status(400).json({
+        error: {
+          message: `Request body must contain either 'title', 'style' or 'content'`
+        }
+      })
+    }
+
+    BookmarksService.updateBookmark(
+      req.app.get("db"),
+      req.params.bookmark_id,
+      bookmarkToUpdate
+    )
+      .then(numRowsAffected => {
+        res.status(204).end();
       })
       .catch(next);
   });
